@@ -7,6 +7,7 @@ Follows 12-factor app principles for environment-based config.
 from pydantic_settings import BaseSettings
 from typing import Optional
 
+
 class Settings(BaseSettings):
     """Core application settings"""
 
@@ -52,13 +53,18 @@ class Settings(BaseSettings):
     feature_rural_financing_enabled: bool = True
 
     # Data Ingestion (Claude API & Caching)
+    llm_provider: str = "anthropic"  # anthropic | groq
     anthropic_api_key: Optional[str] = None  # For Claude-powered data mapping
-    redis_url: Optional[str] = "redis://localhost:6379"  # Cache for LLM responses
+    groq_api_key: Optional[str] = None
+    groq_model: str = "llama-3.1-70b-versatile"
+    # Cache for LLM responses
+    redis_url: Optional[str] = "redis://localhost:6379"
     ingest_batch_size: int = 100
     ingest_max_concurrent_llm: int = 5
 
     class Config:
         env_file = ".env"
         case_sensitive = False
+
 
 settings = Settings()

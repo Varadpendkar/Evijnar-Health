@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 import {
   Search,
   Mic,
@@ -15,11 +15,11 @@ import {
   DollarSign,
   CreditCard,
   ArrowRight,
-} from 'lucide-react';
-import clsx from 'clsx';
+} from "lucide-react";
+import clsx from "clsx";
 
-type SearchMode = 'local' | 'global';
-type SortBy = 'price' | 'accreditation' | 'savings';
+type SearchMode = "local" | "global";
+type SortBy = "price" | "accreditation" | "savings";
 interface Hospital {
   id: string;
   name: string;
@@ -30,7 +30,7 @@ interface Hospital {
   successRate: number;
   estimatedSavings: number;
   savingsPercentage: number;
-  type: 'local' | 'global';
+  type: "local" | "global";
   country?: string;
   specialization?: string;
 }
@@ -42,10 +42,10 @@ type VitalStats = {
 };
 
 export default function SearchPage() {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [isListening, setIsListening] = useState(false);
-  const [searchMode, setSearchMode] = useState<SearchMode>('local');
-  const [sortBy, setSortBy] = useState<SortBy>('price');
+  const [searchMode, setSearchMode] = useState<SearchMode>("local");
+  const [sortBy, setSortBy] = useState<SortBy>("price");
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [showRecoveryBridge, setShowRecoveryBridge] = useState(false);
   const [vitalStats, setVitalStats] = useState<VitalStats>({
@@ -57,44 +57,44 @@ export default function SearchPage() {
 
   const mockHospitals: Hospital[] = [
     {
-      id: 'local-1',
-      name: 'City General Hospital',
-      location: 'New York, USA',
+      id: "local-1",
+      name: "City General Hospital",
+      location: "New York, USA",
       price: 45000,
-      currency: 'USD',
+      currency: "USD",
       jciAccredited: true,
       successRate: 97,
       estimatedSavings: 0,
       savingsPercentage: 0,
-      type: 'local',
+      type: "local",
     },
     {
-      id: 'global-1',
-      name: 'Apollo Hospitals',
-      location: 'Delhi, India',
+      id: "global-1",
+      name: "Apollo Hospitals",
+      location: "Delhi, India",
       price: 8500,
-      currency: 'USD',
+      currency: "USD",
       jciAccredited: true,
       successRate: 98.5,
       estimatedSavings: 36500,
       savingsPercentage: 81,
-      type: 'global',
-      country: 'India',
-      specialization: 'Center of Excellence',
+      type: "global",
+      country: "India",
+      specialization: "Center of Excellence",
     },
     {
-      id: 'global-2',
-      name: 'Medanta Orthopedic Hospital',
-      location: 'Gurgaon, India',
+      id: "global-2",
+      name: "Medanta Orthopedic Hospital",
+      location: "Gurgaon, India",
       price: 7200,
-      currency: 'USD',
+      currency: "USD",
       jciAccredited: true,
       successRate: 99,
       estimatedSavings: 37800,
       savingsPercentage: 84,
-      type: 'global',
-      country: 'India',
-      specialization: 'Center of Excellence',
+      type: "global",
+      country: "India",
+      specialization: "Center of Excellence",
     },
   ];
 
@@ -102,485 +102,496 @@ export default function SearchPage() {
     // Simulate real-time vitals update
     const interval = setInterval(() => {
       setVitalStats((prev) => ({
-        heartRate: prev.heartRate + (Math.random() - 0.5) * 10,
-        temperature: prev.temperature + (Math.random() - 0.5) * 0.2,
+        heartRate: Math.max(
+          60,
+          Math.min(100, prev.heartRate + (Math.random() - 0.5) * 10),
+        ),
+        temperature: Math.max(
+          36.5,
+          Math.min(38.5, prev.temperature + (Math.random() - 0.5) * 0.2),
+        ),
         isStable: Math.random() > 0.1,
       }));
     }, 3000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleSearch = () => {
-    if (searchQuery.trim()) {
-      setHospitals(mockHospitals);
-    }
+  const handleSearch = (filters: SearchFilters) => {
+    setSearchFilters(filters);
+    setCurrentView("search");
   };
 
-  const handleVoiceSearch = async () => {
-    setIsListening(!isListening);
-    if (!isListening) {
-      // Web Speech API
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      if (SpeechRecognition) {
-        const recognition = new SpeechRecognition();
-        recognition.lang = 'en-US';
-        recognition.onresult = (event: any) => {
-          const transcript = event.results[0][0].transcript;
-          setSearchQuery(transcript);
-          setIsListening(false);
-        };
-        recognition.start();
-      }
-    }
+  const handleProcedureSelect = (procedureCode: string) => {
+    setSearchFilters({ procedure_code: procedureCode });
+    setCurrentView("search");
   };
-
-  const sortedHospitals = [...hospitals].sort((a, b) => {
-    if (sortBy === 'price') return a.price - b.price;
-    if (sortBy === 'savings') return b.savingsPercentage - a.savingsPercentage;
-    if (sortBy === 'accreditation') return b.successRate - a.successRate;
-    return 0;
-  });
-
-  const filtered = sortedHospitals.filter((h) => {
-    if (searchMode === 'local') return h.type === 'local';
-    return h.type === 'global';
-  });
-
-  const localHospital = filtered.find((h) => h.type === 'local');
-  const globalHospital = filtered.find((h) => h.type === 'global');
 
   return (
-    <div className="min-h-screen bg-white pb-8">
-      {/* Header */}
+    <div className="min-h-screen bg-white">
       <header className="bg-navy sticky top-0 z-50 shadow-md">
-        <div className="max-w-2xl mx-auto px-4 py-6">
+        <div className="max-w-7xl mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <h1 className="text-white font-bold text-xl">Evijnar</h1>
-            <span className="text-emerald text-sm font-semibold">Global Access</span>
+            <div className="flex items-center gap-2">
+              <h1 className="text-white font-bold text-2xl">Evijnar</h1>
+              <p className="text-emerald text-xs font-semibold hidden md:inline">
+                Global Health Arbitrage
+              </p>
+            </div>
+
+            <nav className="hidden md:flex items-center gap-6">
+              {(
+                [
+                  "home",
+                  "search",
+                  "procedures",
+                  "tourism",
+                  "recovery",
+                  "bookings",
+                ] as const
+              ).map((view) => (
+                <button
+                  key={view}
+                  onClick={() => setCurrentView(view)}
+                  className={clsx(
+                    "text-sm font-semibold transition-colors",
+                    currentView === view
+                      ? "text-emerald"
+                      : "text-white hover:text-emerald-light",
+                  )}
+                >
+                  {view === "home" && "Home"}
+                  {view === "search" && "Search"}
+                  {view === "procedures" && "Procedures"}
+                  {view === "tourism" && "Tourism"}
+                  {view === "recovery" && "Recovery"}
+                  {view === "bookings" && "Bookings"}
+                </button>
+              ))}
+            </nav>
+
+            <div className="flex items-center gap-4">
+              <button className="p-2 hover:bg-navy-light rounded-lg hidden md:block">
+                <Settings className="w-5 h-5 text-white" />
+              </button>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="md:hidden p-2 hover:bg-navy-light rounded-lg"
+              >
+                {mobileMenuOpen ? (
+                  <X className="w-6 h-6 text-white" />
+                ) : (
+                  <Menu className="w-6 h-6 text-white" />
+                )}
+              </button>
+            </div>
           </div>
+
+          {mobileMenuOpen && (
+            <nav className="md:hidden mt-4 space-y-2 border-t border-navy-light pt-4">
+              {(
+                [
+                  "home",
+                  "search",
+                  "procedures",
+                  "tourism",
+                  "recovery",
+                  "bookings",
+                ] as const
+              ).map((view) => (
+                <button
+                  key={view}
+                  onClick={() => {
+                    setCurrentView(view);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={clsx(
+                    "w-full text-left px-4 py-2 rounded transition-colors",
+                    currentView === view
+                      ? "bg-emerald text-white"
+                      : "text-white hover:bg-navy-light",
+                  )}
+                >
+                  {view === "home" && "Home"}
+                  {view === "search" && "Search"}
+                  {view === "procedures" && "Procedures"}
+                  {view === "tourism" && "Tourism"}
+                  {view === "recovery" && "Recovery"}
+                  {view === "bookings" && "Bookings"}
+                </button>
+              ))}
+            </nav>
+          )}
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto px-4 py-6 space-y-8">
-        {/* ===== 1. UNIVERSAL SEARCH COMPONENT ===== */}
-        <section className="space-y-4">
-          <div>
-            <h2 className="text-h3 mb-4">Find Your Treatment</h2>
-
-            {/* Search Bar */}
-            <div className="flex gap-2 mb-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Procedure or Symptom..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
-                  className={clsx('input-base pl-4', 'text-base')}
-                />
-                <Search className="absolute right-3 top-3 text-gray-medium w-5 h-5" />
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {currentView === "home" && (
+          <div className="space-y-12">
+            <section className="space-y-6">
+              <h1 className="text-h1">Global Health at Your Fingertips</h1>
+              <p className="text-body text-gray-medium">
+                Access world-class healthcare. Save up to 80% on procedures from
+                JCI-certified hospitals.
+              </p>
+              <div className="flex flex-col md:flex-row gap-4">
+                <button
+                  onClick={() => setCurrentView("search")}
+                  className="btn-primary flex items-center gap-2 justify-center"
+                >
+                  <SearchIcon className="w-5 h-5" /> Start Search
+                </button>
+                <button
+                  onClick={() => setCurrentView("tourism")}
+                  className="btn-secondary flex items-center gap-2 justify-center"
+                >
+                  <Plane className="w-5 h-5" /> Explore Tourism
+                </button>
               </div>
+            </section>
 
-              {/* Voice Search Button */}
-              <button
-                ref={micRef}
-                onClick={handleVoiceSearch}
-                className={clsx(
-                  'btn-sm rounded-lg transition-all duration-200 flex items-center gap-2',
-                  isListening
-                    ? 'bg-red-alert text-white animate-pulse'
-                    : 'bg-emerald text-white hover:bg-emerald-dark'
-                )}
-                title="Voice search"
-              >
-                <Mic className="w-5 h-5" />
-              </button>
-
-              <button
-                onClick={handleSearch}
-                className="btn-primary btn-sm flex items-center gap-2"
-              >
-                <Search className="w-5 h-5" />
-                <span className="hidden sm:inline">Search</span>
-              </button>
-            </div>
-
-            {/* Search Mode Toggle */}
-            <div className="flex gap-2 mb-4">
-              <button
-                onClick={() => setSearchMode('local')}
-                className={clsx(
-                  'badge btn-sm flex-1 justify-center gap-2 transition-all',
-                  searchMode === 'local'
-                    ? 'bg-navy text-white'
-                    : 'bg-gray-light text-gray-dark hover:bg-gray-200'
-                )}
-              >
-                <MapPin className="w-4 h-4" />
-                <span>Local Search</span>
-              </button>
-              <button
-                onClick={() => setSearchMode('global')}
-                className={clsx(
-                  'badge btn-sm flex-1 justify-center gap-2 transition-all',
-                  searchMode === 'global'
-                    ? 'bg-emerald text-white'
-                    : 'bg-gray-light text-gray-dark hover:bg-gray-200'
-                )}
-              >
-                <Globe className="w-4 h-4" />
-                <span>Global Arbitrage</span>
-              </button>
-            </div>
-
-            {/* Sort Options */}
-            {hospitals.length > 0 && (
-              <div className="flex gap-2 overflow-x-auto pb-2">
-                {(['price', 'savings', 'accreditation'] as const).map((sort) => (
-                  <button
-                    key={sort}
-                    onClick={() => setSortBy(sort)}
-                    className={clsx(
-                      'badge btn-sm whitespace-nowrap transition-all',
-                      sortBy === sort
-                        ? 'bg-navy text-white'
-                        : 'bg-gray-light text-gray-dark hover:bg-gray-200'
-                    )}
-                  >
-                    {sort === 'price' && '💰 Price'}
-                    {sort === 'savings' && '🎯 Savings'}
-                    {sort === 'accreditation' && '✓ Quality'}
-                  </button>
+            <section className="space-y-4">
+              <h2 className="text-h2">Why Choose Evijnar?</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  {
+                    icon: Building2,
+                    title: "World-Class Hospitals",
+                    desc: "JCI-accredited facilities",
+                  },
+                  {
+                    icon: PiggyBank,
+                    title: "Up to 80% Savings",
+                    desc: "Same quality, lower cost",
+                  },
+                  {
+                    icon: HeartPulse,
+                    title: "24/7 Support",
+                    desc: "Global doctor team",
+                  },
+                  {
+                    icon: Plane,
+                    title: "All-Inclusive",
+                    desc: "Travel included",
+                  },
+                  {
+                    icon: ShieldCheck,
+                    title: "HIPAA Safe",
+                    desc: "Encrypted data",
+                  },
+                  {
+                    icon: Smartphone,
+                    title: "Easy Financing",
+                    desc: "0% EMI options",
+                  },
+                ].map((f, i) => (
+                  <div key={i} className="card p-6 space-y-3 hover:shadow-lg">
+                    <f.icon className="w-8 h-8 text-emerald" />
+                    <h3 className="font-bold text-navy">{f.title}</h3>
+                    <p className="text-sm text-gray-medium">{f.desc}</p>
+                  </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="card-navy p-8">
+              <h2 className="text-h2 text-white mb-6">By The Numbers</h2>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                {[
+                  { num: "500+", label: "Hospitals" },
+                  { num: "50+", label: "Countries" },
+                  { num: "100K+", label: "Patients" },
+                  { num: "$2B+", label: "Savings" },
+                ].map((s, i) => (
+                  <div key={i} className="text-center">
+                    <p className="text-3xl md:text-4xl font-bold text-emerald">
+                      {s.num}
+                    </p>
+                    <p className="text-sm text-white/80 mt-2">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </div>
+        )}
+
+        {currentView === "search" && (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-h1 mb-2">Find Your Treatment</h1>
+              <p className="text-gray-medium">
+                Search hospitals and compare prices globally
+              </p>
+            </div>
+            <SearchBar
+              onSearch={handleSearch}
+              onProcedureSelect={handleProcedureSelect}
+            />
+            {searchFilters && (
+              <div className="space-y-6">
+                <h2 className="text-h2">Hospitals & Clinics</h2>
+                <HospitalsGrid filters={searchFilters} />
               </div>
             )}
           </div>
-        </section>
-
-        {/* ===== 2. ARBITRAGE COMPARISON DASHBOARD ===== */}
-        {hospitals.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-h3">Your Options</h2>
-
-            {/* Side-by-Side Comparison */}
-            <div className="grid grid-2-col gap-4">
-              {/* Local Option */}
-              {localHospital && (
-                <div className="card p-4 space-y-3 border-l-4 border-navy">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-navy text-sm">{localHospital.name}</h3>
-                      <p className="text-caption text-gray-medium flex items-center gap-1 mt-1">
-                        <MapPin className="w-3 h-3" />
-                        {localHospital.location}
-                      </p>
-                    </div>
-                    <button className="p-1 hover:bg-gray-100 rounded">
-                      <MoreVertical className="w-4 h-4 text-gray-medium" />
-                    </button>
-                  </div>
-
-                  {/* Price */}
-                  <div className="bg-gray-50 rounded-lg p-3">
-                    <p className="text-caption text-gray-medium">Local Price</p>
-                    <p className="text-2xl font-bold text-navy">
-                      {localHospital.currency} {localHospital.price.toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* JCI Badge */}
-                  {localHospital.jciAccredited && (
-                    <div className="flex flex-wrap gap-2">
-                      <span className="badge badge-navy">
-                        <Check className="w-3 h-3" />
-                        JCI Accredited
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Success Rate */}
-                  <p className="text-caption text-gray-dark">
-                    Success Rate: <span className="font-semibold text-navy">{localHospital.successRate}%</span>
-                  </p>
-
-                  <button className="w-full btn-secondary btn-sm mt-2">
-                    Learn More
-                  </button>
-                </div>
-              )}
-
-              {/* Global Option */}
-              {globalHospital && (
-                <div className="card p-4 space-y-3 border-l-4 border-emerald bg-emerald-light">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-bold text-emerald-dark text-sm">
-                        {globalHospital.specialization}
-                      </h3>
-                      <p className="text-caption text-emerald-dark/70 flex items-center gap-1 mt-1">
-                        <Globe className="w-3 h-3" />
-                        {globalHospital.location}
-                      </p>
-                    </div>
-                    <button className="p-1 hover:bg-white/50 rounded">
-                      <MoreVertical className="w-4 h-4 text-emerald-dark" />
-                    </button>
-                  </div>
-
-                  {/* Price + Savings */}
-                  <div className="bg-white rounded-lg p-3">
-                    <p className="text-caption text-gray-medium">Global Price</p>
-                    <div className="flex items-baseline gap-2 mt-1">
-                      <p className="text-2xl font-bold text-emerald">
-                        USD {globalHospital.price.toLocaleString()}
-                      </p>
-                      <span className="text-sm font-semibold text-emerald">
-                        Save {globalHospital.savingsPercentage}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Savings Breakdown */}
-                  <div className="bg-white rounded-lg p-3 border border-emerald/20">
-                    <p className="text-caption text-gray-medium mb-2">Your Savings</p>
-                    <p className="text-xl font-bold text-emerald">
-                      USD {globalHospital.estimatedSavings.toLocaleString()}
-                    </p>
-                  </div>
-
-                  {/* Quality Badges */}
-                  <div className="flex flex-wrap gap-2">
-                    <span className="badge bg-white text-emerald-dark text-xs">
-                      <Check className="w-3 h-3" />
-                      JCI Certified
-                    </span>
-                    <span className="badge bg-white text-emerald-dark text-xs">
-                      Excellence: {globalHospital.successRate}%
-                    </span>
-                  </div>
-
-                  <button className="w-full btn-primary btn-sm mt-2 flex items-center justify-center gap-2">
-                    Select & Continue
-                    <ArrowRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Why Choose Global? */}
-            <div className="card-navy p-4 space-y-3">
-              <h4 className="font-semibold text-white text-sm">💡 Why Choose Global?</h4>
-              <ul className="space-y-2 text-sm text-white/90">
-                <li className="flex gap-2">
-                  <Check className="w-4 h-4 flex-shrink-0 text-emerald" />
-                  <span>Same quality standards (JCI/ISO certified)</span>
-                </li>
-                <li className="flex gap-2">
-                  <Check className="w-4 h-4 flex-shrink-0 text-emerald" />
-                  <span>Free flights + accommodation included</span>
-                </li>
-                <li className="flex gap-2">
-                  <Check className="w-4 h-4 flex-shrink-0 text-emerald" />
-                  <span>Global surgeon + local recovery team</span>
-                </li>
-              </ul>
-            </div>
-          </section>
         )}
 
-        {/* ===== 3. RECOVERY BRIDGE PATIENT PORTAL ===== */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-h3">Recovery Bridge</h2>
-            <button
-              onClick={() => setShowRecoveryBridge(!showRecoveryBridge)}
-              className="text-sm font-semibold text-emerald hover:text-emerald-dark"
-            >
-              {showRecoveryBridge ? 'Hide' : 'View'} Portal
-            </button>
-          </div>
-
-          {showRecoveryBridge && (
-            <div className="card p-6 space-y-6">
-              {/* Status Indicator */}
-              <div className="flex items-center justify-between bg-emerald-light rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 bg-emerald rounded-full animate-pulse" />
-                  <div>
-                    <p className="text-sm font-semibold text-emerald-dark">Global Surgeon Monitoring</p>
-                    <p className="text-xs text-emerald-dark/70">Dr. Rajesh Kumar (Apollo)</p>
-                  </div>
-                </div>
-                <span className={clsx('badge', vitalStats.isStable ? 'badge-success' : 'badge-alert')}>
-                  {vitalStats.isStable ? 'SAFE' : 'ALERT'}
-                </span>
-              </div>
-
-              {/* Real-Time Vitals */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-navy">Real-Time Vitals</h3>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {/* Heart Rate */}
-                  <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-red-alert">
-                      <Heart className="w-4 h-4" />
-                      <p className="text-xs font-semibold">Heart Rate</p>
-                    </div>
-                    <p className="text-2xl font-bold text-red-alert">
-                      {Math.round(vitalStats.heartRate)} bpm
-                    </p>
-                    <p className="text-xs text-gray-medium">Normal: 60-100 bpm</p>
-                  </div>
-
-                  {/* Temperature */}
-                  <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 space-y-2">
-                    <div className="flex items-center gap-2 text-orange-600">
-                      <Thermometer className="w-4 h-4" />
-                      <p className="text-xs font-semibold">Temperature</p>
-                    </div>
-                    <p className="text-2xl font-bold text-orange-600">
-                      {vitalStats.temperature.toFixed(1)}°C
-                    </p>
-                    <p className="text-xs text-gray-medium">Normal: 36.5-37.5°C</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Alert Zone */}
-              {!vitalStats.isStable && (
-                <div className="bg-red-light border border-red-alert rounded-lg p-4 flex gap-3">
-                  <AlertCircle className="w-5 h-5 text-red-alert flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-red-alert text-sm">Alert: Check vitals</p>
-                    <p className="text-xs text-gray-dark mt-1">
-                      Your surgeon has been notified. Take medication and rest.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Quick Actions */}
-              <div className="flex gap-2">
-                <button className="flex-1 btn-primary btn-sm flex items-center justify-center gap-2">
-                  <Shield className="w-4 h-4" />
-                  Contact Doctor
-                </button>
-                <button className="flex-1 btn-secondary btn-sm">Medication Log</button>
-              </div>
-
-              {/* 24/7 Support Badge */}
-              <div className="text-center p-3 bg-navy rounded-lg">
-                <p className="text-white text-xs">
-                  ✓ <span className="font-semibold">24/7 Surgery Team Support</span>
-                </p>
-              </div>
-            </div>
-          )}
-        </section>
-
-        {/* ===== 4. RURAL EQUITY CHECKOUT ===== */}
-        {hospitals.length > 0 && (
-          <section className="space-y-4">
-            <h2 className="text-h3">Payment Options</h2>
-
-            <div className="card p-4 space-y-4">
-              {/* Cost Breakdown */}
-              <div className="space-y-3 bg-gray-50 rounded-lg p-4">
-                <h3 className="font-semibold text-navy text-sm mb-3">Cost Breakdown</h3>
-
-                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-dark">Surgery + Treatment</span>
-                  <span className="font-semibold text-navy">USD 8,500</span>
-                </div>
-
-                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-dark">Flights + Accommodation</span>
-                  <span className="font-semibold text-navy">USD 2,000</span>
-                </div>
-
-                <div className="flex justify-between items-center pb-2 border-b border-gray-200">
-                  <span className="text-sm text-gray-dark">Recovery Kit + Monitoring</span>
-                  <span className="font-semibold text-navy">USD 500</span>
-                </div>
-
-                <div className="flex justify-between items-center pt-2 text-base font-bold text-emerald">
-                  <span>Total Cost</span>
-                  <span>USD 11,000</span>
-                </div>
-              </div>
-
-              {/* Payment Method Selection */}
-              <div className="space-y-3">
-                <h3 className="font-semibold text-navy text-sm">Payment Method</h3>
-
-                {/* Health EMI Option */}
-                <label className="flex gap-3 p-3 border-2 border-emerald rounded-lg cursor-pointer hover:bg-emerald-light transition-colors">
-                  <input type="radio" name="payment" defaultChecked className="mt-1" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm text-navy">Health-EMI (0% Interest)</p>
-                    <p className="text-xs text-gray-medium mt-1">
-                      Pay USD 917/month for 12 months
-                    </p>
-                    <p className="text-xs text-emerald font-semibold mt-1">✓ Recommended for rural patients</p>
-                  </div>
-                </label>
-
-                {/* UPI Option */}
-                <label className="flex gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input type="radio" name="payment" className="mt-1" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm text-navy">UPI 2.0 Direct</p>
-                    <p className="text-xs text-gray-medium mt-1">Instant payment from your bank</p>
-                    <p className="text-xs text-gray-medium mt-1 flex items-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Works offline
-                    </p>
-                  </div>
-                </label>
-
-                {/* Crypto Option */}
-                <label className="flex gap-3 p-3 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
-                  <input type="radio" name="payment" className="mt-1" />
-                  <div className="flex-1">
-                    <p className="font-semibold text-sm text-navy">Blockchain Payment</p>
-                    <p className="text-xs text-gray-medium mt-1">USDC stable coin settlement</p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Transparency Note */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-2">
-                <Shield className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
-                <p className="text-xs text-gray-dark">
-                  <span className="font-semibold text-blue-900">100% Transparent:</span> No hidden costs. All fees disclosed.
-                </p>
-              </div>
-
-              {/* CTA Button */}
-              <button className="w-full btn-primary btn-sm py-3 flex items-center justify-center gap-2 text-base font-semibold">
-                <DollarSign className="w-5 h-5" />
-                Proceed to Payment
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* Empty State */}
-        {hospitals.length === 0 && searchQuery === '' && (
-          <div className="text-center py-12 space-y-4">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto">
-              <Search className="w-8 h-8 text-gray-400" />
-            </div>
+        {currentView === "procedures" && (
+          <div className="space-y-8">
             <div>
-              <h3 className="text-lg font-semibold text-navy">Search for Treatment</h3>
-              <p className="text-sm text-gray-medium mt-2">
-                Enter a procedure name or symptom to find global options
+              <h1 className="text-h1 mb-2">Browse Procedures</h1>
+              <p className="text-gray-medium">
+                Explore available procedures, costs, and outcomes
               </p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-1">
+                <div className="sticky top-24 space-y-4">
+                  <h3 className="font-bold text-navy">Filter</h3>
+                  <div className="card p-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-dark mb-2">
+                        Category
+                      </label>
+                      <select className="input-base text-sm w-full">
+                        <option>All Categories</option>
+                        <option>Orthopedics</option>
+                        <option>Cardiology</option>
+                        <option>Oncology</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="lg:col-span-2">
+                <ProceduresList onSelectProcedure={handleProcedureSelect} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentView === "tourism" && (
+          <div className="space-y-12">
+            <div>
+              <h1 className="text-h1 mb-2">Health Tourism Packages</h1>
+              <p className="text-gray-medium">
+                Treatment combined with travel experiences
+              </p>
+            </div>
+            <section className="space-y-4">
+              <h2 className="text-h2">Featured Packages</h2>
+              <HealthTourismPackages />
+            </section>
+            <section className="space-y-4">
+              <h2 className="text-h2">Popular Destinations</h2>
+              <HealthTourismDestinations />
+            </section>
+          </div>
+        )}
+
+        {currentView === "recovery" && (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-h1 mb-2">Recovery Bridge Portal</h1>
+              <p className="text-gray-medium">
+                Real-time monitoring with your surgical team
+              </p>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              <div className="lg:col-span-2 space-y-6">
+                <div className="card-navy p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-4 h-4 bg-emerald rounded-full" />
+                      <div>
+                        <p className="font-bold text-white">
+                          Active Monitoring
+                        </p>
+                        <p className="text-sm text-white/80">
+                          Dr. Rajesh Kumar
+                        </p>
+                      </div>
+                    </div>
+                    <span className="badge bg-emerald text-white">SAFE</span>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="text-h3">Live Vitals</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="card p-6 space-y-3">
+                      <div className="flex items-center gap-2 text-red-alert">
+                        <Heart className="w-5 h-5" />
+                        <p className="text-sm font-semibold">Heart Rate</p>
+                      </div>
+                      <p className="text-4xl font-bold text-red-alert">
+                        {Math.round(vitalStats.heartRate)}
+                      </p>
+                      <p className="text-xs text-gray-medium">bpm • 60-100</p>
+                    </div>
+                    <div className="card p-6 space-y-3">
+                      <div className="flex items-center gap-2 text-orange-600">
+                        <Thermometer className="w-5 h-5" />
+                        <p className="text-sm font-semibold">Temperature</p>
+                      </div>
+                      <p className="text-4xl font-bold text-orange-600">
+                        {vitalStats.temperature.toFixed(1)}
+                      </p>
+                      <p className="text-xs text-gray-medium">°C • 36.5-37.5</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="card p-4">
+                  <h4 className="font-bold text-navy mb-3">Quick Actions</h4>
+                  <button className="w-full btn-primary btn-sm mb-2">
+                    Contact Doctor
+                  </button>
+                  <button className="w-full btn-secondary btn-sm">
+                    Video Call
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {currentView === "bookings" && (
+          <div className="space-y-8">
+            <div>
+              <h1 className="text-h1 mb-2">My Bookings</h1>
+              <p className="text-gray-medium">Manage your appointments</p>
+            </div>
+            <div className="space-y-4">
+              {[
+                {
+                  status: "Confirmed",
+                  proc: "Knee Replacement",
+                  hosp: "Apollo Hospitals",
+                  date: "May 15, 2026",
+                  doc: "Dr. Kumar",
+                },
+                {
+                  status: "Inquiry",
+                  proc: "CABG Surgery",
+                  hosp: "Medanta Hospital",
+                  date: "May 25, 2026",
+                  doc: "Dr. Sharma",
+                },
+              ].map((b, i) => (
+                <div key={i} className="card p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-bold text-navy text-lg">
+                          {b.proc}
+                        </h3>
+                        <span
+                          className={clsx(
+                            "text-xs font-semibold px-3 py-1 rounded-full",
+                            b.status === "Confirmed"
+                              ? "bg-emerald text-white"
+                              : "bg-yellow-100",
+                          )}
+                        >
+                          {b.status}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-medium">{b.hosp}</p>
+                      <p className="text-sm text-gray-medium">Dr: {b.doc}</p>
+                    </div>
+                    <p className="text-sm font-semibold">{b.date}</p>
+                  </div>
+                  <div className="flex gap-3 border-t border-gray-light pt-4">
+                    <button className="flex-1 btn-primary btn-sm">
+                      Details
+                    </button>
+                    <button className="flex-1 btn-secondary btn-sm">
+                      Update
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}
       </main>
+
+      <footer className="bg-navy text-white mt-16">
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <h4 className="font-bold text-lg mb-4">Evijnar</h4>
+              <p className="text-sm text-white/80">
+                Global healthcare access for everyone.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm mb-4">Platform</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Search Hospitals
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Browse Procedures
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Health Tourism
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm mb-4">Company</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Blog
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Careers
+                  </a>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-sm mb-4">Legal</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Privacy
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    Terms
+                  </a>
+                </li>
+                <li>
+                  <a href="#" className="hover:text-emerald">
+                    HIPAA
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-navy-light pt-8 text-center text-sm text-white/60">
+            <p>&copy; 2026 Evijnar Health. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

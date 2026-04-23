@@ -14,6 +14,11 @@ module.exports = {
         emerald: '#10B981',
         'emerald-dark': '#059669',
         'emerald-light': '#ECFDF5',
+        'red-alert': '#EF4444',
+        'red-light': '#FEE2E2',
+        'gray-light': '#E5E7EB',
+        'gray-medium': '#9CA3AF',
+        'gray-dark': '#374151',
       },
       fontFamily: {
         sans: ['system-ui', 'sans-serif'],

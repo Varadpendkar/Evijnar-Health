@@ -23,6 +23,7 @@ from app.routers import (
     admin,
 )
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle management for startup/shutdown"""
@@ -75,28 +76,36 @@ app.add_middleware(EncryptionHeaderMiddleware)
 app.include_router(health.router, tags=["Health"])
 
 # Authentication
-app.include_router(auth.router, prefix=f"/api/{settings.api_version}/auth", tags=["Auth"])
+app.include_router(
+    auth.router, prefix=f"/api/{settings.api_version}/auth", tags=["Auth"])
 
 # Admin endpoints
 app.include_router(admin.router, tags=["Admin"])
 
 # Patients & Medical Records (Protected)
-app.include_router(patients.router, prefix=f"/api/{settings.api_version}/patients", tags=["Patients"])
+app.include_router(
+    patients.router, prefix=f"/api/{settings.api_version}/patients", tags=["Patients"])
 
 # Hospitals & Search
-app.include_router(hospitals.router, prefix=f"/api/{settings.api_version}/hospitals", tags=["Hospitals"])
+app.include_router(
+    hospitals.router, prefix=f"/api/{settings.api_version}/hospitals", tags=["Hospitals"])
 
 # Pricing & Procedures
-app.include_router(pricing.router, prefix=f"/api/{settings.api_version}/pricing", tags=["Pricing"])
+app.include_router(
+    pricing.router, prefix=f"/api/{settings.api_version}/pricing", tags=["Pricing"])
 
 # Bookings & Reservations
-app.include_router(bookings.router, prefix=f"/api/{settings.api_version}/bookings", tags=["Bookings"])
+app.include_router(
+    bookings.router, prefix=f"/api/{settings.api_version}/bookings", tags=["Bookings"])
 
 # Recovery Bridge (IoMT Monitoring)
-app.include_router(recovery.router, prefix=f"/api/{settings.api_version}/recovery", tags=["Recovery Bridge"])
+app.include_router(
+    recovery.router, prefix=f"/api/{settings.api_version}/recovery", tags=["Recovery Bridge"])
 
 # Rural Financing (UPI & Health-EMI)
-app.include_router(financing.router, prefix=f"/api/{settings.api_version}/financing", tags=["Financing"])
+app.include_router(
+    financing.router, prefix=f"/api/{settings.api_version}/financing", tags=["Financing"])
+
 
 @app.get("/")
 async def root():

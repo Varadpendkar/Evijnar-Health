@@ -1,18 +1,20 @@
-# apps/api/app/utils/llm_client.py
 """
-Claude API wrapper for intelligent data mapping.
+Unified LLM client wrapper for data mapping.
+Supports Anthropic Claude and Groq providers with shared caching/retry logic.
 Includes caching, retry logic, and structured output parsing.
 """
 
-import json
-import hashlib
-import logging
 import asyncio
-from typing import Optional, Dict, Any, Any as CallableReturnType
-import redis.asyncio as redis
+import hashlib
+import json
+import logging
+from typing import Optional, Dict, Any
 
-from anthropic import Anthropic, AsyncAnthropic
+import httpx
+import redis.asyncio as redis
+from anthropic import AsyncAnthropic
 from anthropic import APIError, RateLimitError, APIConnectionError
+
 from app.config import settings
 
 logger = logging.getLogger("evijnar.llm")
@@ -22,7 +24,8 @@ class LLMCache:
     """Redis-backed cache for LLM responses"""
 
     def __init__(self, redis_url: Optional[str] = None):
-        self.redis_url = redis_url or settings.redis_url if hasattr(settings, 'redis_url') else "redis://localhost:6379"
+        self.redis_url = redis_url or settings.redis_url if hasattr(
+            settings, "redis_url") else "redis://localhost:6379"
         self.redis: Optional[redis.Redis] = None
         self.enabled = self.redis_url is not None
 
@@ -32,11 +35,12 @@ class LLMCache:
             return
 
         try:
-            self.redis = await aioredis.from_url(self.redis_url)
+            self.redis = await redis.from_url(self.redis_url)
             await self.redis.ping()
             logger.info("Connected to Redis cache")
         except Exception as e:
-            logger.warning(f"Failed to connect to Redis: {e}. Continuing without cache.")
+            logger.warning(
+                f"Failed to connect to Redis: {e}. Continuing without cache.")
             self.enabled = False
 
     async def disconnect(self):
@@ -85,7 +89,8 @@ class ClaudeClient:
     """
 
     def __init__(self, api_key: Optional[str] = None, cache: Optional[LLMCache] = None):
-        self.api_key = api_key or settings.anthropic_api_key if hasattr(settings, 'anthropic_api_key') else None
+        self.api_key = api_key or settings.anthropic_api_key if hasattr(
+            settings, "anthropic_api_key") else None
         self.client = AsyncAnthropic(api_key=self.api_key)
         self.cache = cache or LLMCache()
         self.model = "claude-opus-4"  # Use latest model
@@ -93,19 +98,22 @@ class ClaudeClient:
         self.retry_delay = 1  # seconds
 
         self.usage_stats = {
+            "provider": self.provider,
             "total_calls": 0,
             "total_tokens": 0,
             "total_cached": 0,
             "estimated_cost_usd": 0.0,
         }
 
-        # Token pricing (as of 2026, may vary)
+        # Approximate token pricing (subject to provider updates)
         self.pricing = {
-            "input_tokens_per_mtok": 0.003,      # $0.003 per 1M input tokens
-            "output_tokens_per_mtok": 0.015,     # $0.015 per 1M output tokens
+            "input_tokens_per_mtok": 0.003,
+            "output_tokens_per_mtok": 0.015,
         }
 
-        logger.info(f"Claude client initialized with model: {self.model}")
+        logger.info(
+            f"LLM client initialized with provider={self.provider}, model={self.model}"
+        )
 
     async def initialize(self):
         """Initialize cache connection"""
@@ -114,6 +122,80 @@ class ClaudeClient:
     async def shutdown(self):
         """Clean up resources"""
         await self.cache.disconnect()
+
+    async def _call_anthropic(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        temperature: float,
+        max_tokens: int,
+    ) -> tuple[str, Dict[str, int]]:
+        if not self.api_key:
+            raise RuntimeError("ANTHROPIC_API_KEY is not configured")
+
+        if self.client is None:
+            self.client = AsyncAnthropic(api_key=self.api_key)
+
+        response = await self.client.messages.create(
+            model=self.model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            system=system_prompt,
+            messages=[{"role": "user", "content": prompt}],
+        )
+
+        response_text = response.content[0].text
+        usage = {
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        }
+        return response_text, usage
+
+    async def _call_groq(
+        self,
+        prompt: str,
+        system_prompt: Optional[str],
+        response_format: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> tuple[str, Dict[str, int]]:
+        if not self.api_key:
+            raise RuntimeError("GROQ_API_KEY is not configured")
+
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
+        payload: Dict[str, Any] = {
+            "model": self.model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+        }
+
+        if response_format == "json":
+            payload["response_format"] = {"type": "json_object"}
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        response_text = data["choices"][0]["message"]["content"]
+        usage_data = data.get("usage", {})
+        usage = {
+            "input_tokens": usage_data.get("prompt_tokens", 0),
+            "output_tokens": usage_data.get("completion_tokens", 0),
+        }
+        return response_text, usage
 
     async def call_claude(
         self,
@@ -161,49 +243,61 @@ class ClaudeClient:
             # Retry logic
             for attempt in range(self.max_retries):
                 try:
-                    logger.debug(f"Claude API call (attempt {attempt + 1}/{self.max_retries})")
-
-                    response = await self.client.messages.create(
-                        model=self.model,
-                        max_tokens=max_tokens,
-                        temperature=temperature,
-                        system=system_prompt,
-                        messages=messages,
+                    logger.debug(
+                        f"LLM API call provider={self.provider} "
+                        f"(attempt {attempt + 1}/{self.max_retries})"
                     )
 
-                    # Extract text content
-                    response_text = response.content[0].text
+                    if self.provider == "groq":
+                        response_text, usage = await self._call_groq(
+                            prompt=prompt,
+                            system_prompt=system_prompt,
+                            response_format=response_format or "json",
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
+                    else:
+                        response_text, usage = await self._call_anthropic(
+                            prompt=prompt,
+                            system_prompt=system_prompt,
+                            temperature=temperature,
+                            max_tokens=max_tokens,
+                        )
 
-                    # Update usage stats
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+
                     self.usage_stats["total_calls"] += 1
-                    self.usage_stats["total_tokens"] += response.usage.input_tokens + response.usage.output_tokens
+                    self.usage_stats["total_tokens"] += input_tokens + \
+                        output_tokens
 
-                    # Calculate cost
-                    input_cost = (response.usage.input_tokens / 1_000_000) * self.pricing["input_tokens_per_mtok"]
-                    output_cost = (response.usage.output_tokens / 1_000_000) * self.pricing["output_tokens_per_mtok"]
+                    input_cost = (
+                        input_tokens / 1_000_000
+                    ) * self.pricing["input_tokens_per_mtok"]
+                    output_cost = (
+                        output_tokens / 1_000_000
+                    ) * self.pricing["output_tokens_per_mtok"]
                     self.usage_stats["estimated_cost_usd"] += input_cost + output_cost
 
-                    logger.debug(
-                        f"Claude response: {len(response_text)} chars, "
-                        f"tokens: {response.usage.input_tokens + response.usage.output_tokens}"
-                    )
-
-                    # Parse JSON if needed
                     if response_format == "json":
                         try:
-                            # Extract JSON from response (may have markdown code blocks)
                             if "```json" in response_text:
-                                json_str = response_text.split("```json")[1].split("```")[0].strip()
+                                json_str = response_text.split(
+                                    "```json")[1].split("```")[0].strip()
                             elif "```" in response_text:
-                                json_str = response_text.split("```")[1].split("```")[0].strip()
+                                json_str = response_text.split(
+                                    "```")[1].split("```")[0].strip()
                             else:
                                 json_str = response_text
 
                             parsed_response = json.loads(json_str)
                         except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse Claude JSON response: {str(e)}")
-                            logger.error(f"Response text: {response_text[:200]}...")
-                            raise ValueError(f"Invalid JSON in Claude response: {str(e)}")
+                            logger.error(
+                                f"Failed to parse LLM JSON response: {str(e)}")
+                            logger.error(
+                                f"Response text: {response_text[:200]}...")
+                            raise ValueError(
+                                f"Invalid JSON in LLM response: {str(e)}")
                     else:
                         parsed_response = {"text": response_text}
 
@@ -214,22 +308,42 @@ class ClaudeClient:
 
                 except RateLimitError:
                     if attempt < self.max_retries - 1:
-                        wait_time = self.retry_delay * (2 ** attempt)  # Exponential backoff
-                        logger.warning(f"Rate limited. Waiting {wait_time}s before retry...")
+                        wait_time = self.retry_delay * \
+                            (2 ** attempt)  # Exponential backoff
+                        logger.warning(
+                            f"Rate limited. Waiting {wait_time}s before retry...")
                         await asyncio.sleep(wait_time)
                     else:
-                        raise APIError("Rate limit exceeded after retries", request=None)
+                        raise APIError(
+                            "Rate limit exceeded after retries", request=None)
 
                 except APIConnectionError as e:
                     if attempt < self.max_retries - 1:
                         wait_time = self.retry_delay * (2 ** attempt)
-                        logger.warning(f"Connection error: {e}. Waiting {wait_time}s before retry...")
+                        logger.warning(
+                            f"Connection error: {e}. Waiting {wait_time}s before retry...")
+                        await asyncio.sleep(wait_time)
+                    else:
+                        raise
+
+                except (RateLimitError, httpx.HTTPStatusError) as e:
+                    is_rate_limit = isinstance(e, RateLimitError) or (
+                        isinstance(e, httpx.HTTPStatusError)
+                        and e.response is not None
+                        and e.response.status_code == 429
+                    )
+
+                    if is_rate_limit and attempt < self.max_retries - 1:
+                        wait_time = self.retry_delay * (2 ** attempt)
+                        logger.warning(
+                            f"Rate limited by {self.provider}. Waiting {wait_time}s before retry..."
+                        )
                         await asyncio.sleep(wait_time)
                     else:
                         raise
 
         except Exception as e:
-            logger.error(f"Claude API error: {str(e)}")
+            logger.error(f"LLM ({self.provider}) error: {str(e)}")
             raise
 
     def get_usage_stats(self) -> Dict[str, Any]:
@@ -239,6 +353,7 @@ class ClaudeClient:
     def reset_usage_stats(self):
         """Reset usage statistics"""
         self.usage_stats = {
+            "provider": self.provider,
             "total_calls": 0,
             "total_tokens": 0,
             "total_cached": 0,
