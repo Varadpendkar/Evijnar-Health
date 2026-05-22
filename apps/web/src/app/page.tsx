@@ -15,11 +15,34 @@ import {
   DollarSign,
   CreditCard,
   ArrowRight,
+  Settings,
+  Menu,
+  Search as SearchIcon,
+  Plane,
+  Building2,
+  PiggyBank,
+  HeartPulse,
+  ShieldCheck,
+  Smartphone,
+  X,
 } from "lucide-react";
 import clsx from "clsx";
+import { SearchBar } from "@/components/SearchBar";
+import { HospitalsGrid } from "@/components/HospitalsGrid";
+import { ProceduresList } from "@/components/ProceduresList";
+import {
+  HealthTourismPackages,
+  HealthTourismDestinations,
+} from "@/components/HealthTourismSection";
 
 type SearchMode = "local" | "global";
 type SortBy = "price" | "accreditation" | "savings";
+interface SearchFilters {
+  procedure_code?: string;
+  location?: string;
+  priceRange?: { min: number; max: number };
+  [key: string]: any;
+}
 interface Hospital {
   id: string;
   name: string;
@@ -48,12 +71,17 @@ export default function SearchPage() {
   const [sortBy, setSortBy] = useState<SortBy>("price");
   const [hospitals, setHospitals] = useState<Hospital[]>([]);
   const [showRecoveryBridge, setShowRecoveryBridge] = useState(false);
+  const [searchFilters, setSearchFilters] = useState<SearchFilters | null>(
+    null,
+  );
   const [vitalStats, setVitalStats] = useState<VitalStats>({
     heartRate: 72,
     temperature: 37.2,
     isStable: true,
   });
   const micRef = useRef<HTMLButtonElement>(null);
+  const [currentView, setCurrentView] = useState<string>("home");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const mockHospitals: Hospital[] = [
     {
